@@ -1,0 +1,7 @@
+{
+  "fullscreen": true,
+  "hideCursor": true,
+  "idleAttractModeSeconds": 120,
+  "maintenanceCombo": "P1_START+P2_START+SERVICE",
+  "returnToLibraryAfterGame": true
+}

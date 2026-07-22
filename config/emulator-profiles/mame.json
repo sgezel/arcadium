@@ -1,0 +1,21 @@
+{
+  "id": "mame",
+  "name": "MAME",
+  "platforms": {
+    "windows": {
+      "defaultExecutables": [
+        "C:\\Emulators\\MAME\\mame.exe"
+      ]
+    },
+    "linux": {
+      "defaultExecutables": [
+        "/usr/games/mame",
+        "/usr/bin/mame"
+      ]
+    }
+  },
+  "arguments": [
+    "{rom}"
+  ],
+  "launchMode": "wait"
+}

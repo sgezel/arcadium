@@ -1,0 +1,17 @@
+{
+  "systems": [
+    {
+      "id": "mame",
+      "name": "MAME",
+      "romPath": "REPLACE_WITH_LOCAL_ROM_PATH",
+      "mediaPath": "REPLACE_WITH_LOCAL_MEDIA_PATH",
+      "extensions": [
+        ".zip",
+        ".7z"
+      ],
+      "emulatorProfile": "mame",
+      "enabled": true,
+      "sortOrder": 1
+    }
+  ]
+}
