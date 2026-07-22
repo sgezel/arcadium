@@ -20,6 +20,7 @@ mono_crash.*.json
 [Bb]in/
 [Oo]bj/
 TestResults/
+*.lscache
 
 # Arcadium local runtime data
 data/*.db
