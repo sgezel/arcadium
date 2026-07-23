@@ -21,5 +21,8 @@ namespace Arcadium.Shared.Models
 
         [JsonPropertyName("returnToLibraryAfterGame")]
         public bool ReturnToLibraryAfterGame { get; set; } = true;
+
+        [JsonPropertyName("database")]
+        public string Database { get; set; } = "arcadium.db";
     }
 }

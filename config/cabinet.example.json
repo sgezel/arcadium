@@ -4,5 +4,6 @@
   "hideCursor": true,
   "idleAttractModeSeconds": 120,
   "maintenanceCombo": "P1_START+P2_START+SERVICE",
-  "returnToLibraryAfterGame": true
+  "returnToLibraryAfterGame": true,
+  "database": "/home/arcadium/arcadium.db"
 }
