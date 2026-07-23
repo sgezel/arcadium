@@ -32,3 +32,6 @@ config/emulator-profiles/*.local.json
 
 # Godot exports
 exports/
+
+config/**/*.json
+!config/**/*.example.json

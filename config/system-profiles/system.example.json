@@ -1,0 +1,17 @@
+{
+  "id": "mame",
+  "name": "MAME",
+  "romPath": [
+    "/roms/mame/"
+  ],
+  "mediaPath": "/ui/mame/",
+  "extensions": [
+    ".zip",
+    ".7z",
+    ".chd"
+  ],
+  "emulatorProfile": "mame",
+  "enabled": true,
+  "sortOrder": 1
+}
+

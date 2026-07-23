@@ -1,4 +1,5 @@
 {
+  "name": "Cabinet",
   "fullscreen": true,
   "hideCursor": true,
   "idleAttractModeSeconds": 120,

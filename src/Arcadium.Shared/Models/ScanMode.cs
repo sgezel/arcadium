@@ -1,4 +1,4 @@
-namespace Arcadium.Domain.Models;
+namespace Arcadium.Shared.Models;
 
 public enum ScanMode
 {
