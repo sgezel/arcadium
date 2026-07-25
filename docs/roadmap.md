@@ -27,7 +27,7 @@ Gebruik die oude repository uitsluitend als functionele en visuele referentie. B
 arcadium-godot/
 ├── Arcadium.sln
 ├── src/
-│   ├── Arcadium.Shared/       # domeinmodellen, repositories, launchercontracten
+│   ├── Arcadium.Core/         # domeinmodellen, repositories, launchercontracten
 │   ├── Arcadium.Scanner/      # C# CLI voor ROM- en mediascans
 │   └── Arcadium.Godot/        # Godot 4 .NET interface
 ├── database/migrations/       # genummerde SQLite-migraties
@@ -38,7 +38,7 @@ arcadium-godot/
 
 | Onderdeel | Verantwoordelijkheid |
 |---|---|
-| `Arcadium.Shared` | modellen, databasecontracten, scan- en launchlogica |
+| `Arcadium.Core` | modellen, databasecontracten, scan- en launchlogica |
 | `Arcadium.Scanner` | ROMs/media indexeren en SQLite bijwerken |
 | `Arcadium.Godot` | cabinet-UI, input, onderhoudsmodus, emulator launching |
 | `config/*.json` | systemen, emulatorprofielen en cabinetinstellingen |
@@ -58,7 +58,7 @@ Gebruik Godot 4 .NET. Alle eigen scripts zijn C#; scenes en themes blijven Godot
 ## Fase 1 — .NET solution
 
 1. Maak `Arcadium.sln`.
-2. Maak `Arcadium.Shared` als class library.
+2. Maak `Arcadium.Core` als class library.
 3. Maak `Arcadium.Scanner` als console-app.
 4. Maak `Arcadium.Godot` als Godot 4 .NET-project.
 5. Laat scanner en Godot verwijzen naar Shared.

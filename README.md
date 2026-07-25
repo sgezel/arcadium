@@ -6,7 +6,7 @@ It is intended to run fullscreen on Windows and Linux, scan local ROM and media 
 
 ## Repository layout
 
-- `src/Arcadium.Shared`: shared domain models and future configuration/database contracts.
+- `src/Arcadium.Core`: shared domain models and future configuration/database contracts.
 - `src/Arcadium.Scanner`: C# command-line ROM scanner.
 - `src/Arcadium.Godot`: Godot cabinet interface.
 - `config`: tracked JSON examples and built-in emulator profiles.

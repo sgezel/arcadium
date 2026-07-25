@@ -1,4 +1,4 @@
-using Arcadium.Domain.Models;
+using Arcadium.Core.Models;
 
 if (args.Length == 0 || args[0] is "--help" or "-h")
 {

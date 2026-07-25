@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace Arcadium.Shared.Models
+namespace Arcadium.Core.Models
 {
     /// <summary>
     /// Represents a system profile (e.g. MAME) as defined in the system-profiles JSON files.

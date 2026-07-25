@@ -3,6 +3,6 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Arcadium.Shared/Arcadium.Shared.csproj" />
+    <ProjectReference Include="../Arcadium.Core/Arcadium.Core.csproj" />
   </ItemGroup>
 </Project>

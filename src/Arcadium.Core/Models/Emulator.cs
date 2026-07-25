@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace Arcadium.Shared.Models
+namespace Arcadium.Core.Models
 {
     public class Emulator
     {
