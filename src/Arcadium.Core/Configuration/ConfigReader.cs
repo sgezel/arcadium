@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Arcadium.Core.Models;
 using GameSystem = Arcadium.Core.Models.System;
 
@@ -34,14 +35,7 @@ public sealed class ConfigReader
 
     private async Task<Cabinet> ReadCabinetAsync(string path, CancellationToken cancellationToken)
     {
-        await using var stream = File.OpenRead(path);
-
-        var cabinet = await JsonSerializer.DeserializeAsync(
-                stream,
-                _jsonContext.Cabinet,
-                cancellationToken)
-            ?? throw new InvalidDataException($"Cabinet configuration is empty: {path}");
-
+        var cabinet = await DeserializeFileAsync(path, _jsonContext.Cabinet, "Cabinet configuration", cancellationToken);
         cabinet.ConfigFilePath = path;
         return cabinet;
     }
@@ -52,13 +46,7 @@ public sealed class ConfigReader
 
         foreach (var path in EnumerateJsonFiles(directory))
         {
-            await using var stream = File.OpenRead(path);
-            var system = await JsonSerializer.DeserializeAsync(
-                    stream,
-                    _jsonContext.System,
-                    cancellationToken)
-                ?? throw new InvalidDataException($"System profile is empty: {path}");
-
+            var system = await DeserializeFileAsync(path, _jsonContext.System, "System profile", cancellationToken);
             system.ConfigFilePath = path;
             systems.Add(system);
         }
@@ -72,18 +60,27 @@ public sealed class ConfigReader
 
         foreach (var path in EnumerateJsonFiles(directory))
         {
-            await using var stream = File.OpenRead(path);
-            var emulator = await JsonSerializer.DeserializeAsync(
-                    stream,
-                    _jsonContext.Emulator,
-                    cancellationToken)
-                ?? throw new InvalidDataException($"Emulator profile is empty: {path}");
-
+            var emulator = await DeserializeFileAsync(path, _jsonContext.Emulator, "Emulator profile", cancellationToken);
             emulator.ConfigFilePath = path;
             emulators.Add(emulator);
         }
 
         return emulators;
+    }
+
+    private static async Task<T> DeserializeFileAsync<T>(string path, JsonTypeInfo<T> typeInfo, string description, CancellationToken cancellationToken)
+    {
+        await using var stream = File.OpenRead(path);
+
+        try
+        {
+            return await JsonSerializer.DeserializeAsync(stream, typeInfo, cancellationToken)
+                ?? throw new InvalidDataException($"{description} is empty: {path}");
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException($"{description} '{path}' contains invalid JSON: {exception.Message}", exception);
+        }
     }
 
     private static IEnumerable<string> EnumerateJsonFiles(string directory)

@@ -26,8 +26,6 @@ TestResults/
 data/*.db
 data/*.db-shm
 data/*.db-wal
-config/cabinet.json
-config/systems.json
 config/emulator-profiles/*.local.json
 
 # Godot exports
