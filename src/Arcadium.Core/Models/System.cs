@@ -8,6 +8,10 @@ namespace Arcadium.Core.Models
     /// </summary>
     public class System
     {
+        /// <summary>Path of the JSON file this profile was loaded from. Not part of the JSON itself.</summary>
+        [JsonIgnore]
+        public string ConfigFilePath { get; set; } = string.Empty;
+
         [JsonPropertyName("id")]
         public string Id { get; set; }= string.Empty;
 

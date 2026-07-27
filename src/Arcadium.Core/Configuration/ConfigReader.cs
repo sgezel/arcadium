@@ -36,11 +36,14 @@ public sealed class ConfigReader
     {
         await using var stream = File.OpenRead(path);
 
-        return await JsonSerializer.DeserializeAsync(
+        var cabinet = await JsonSerializer.DeserializeAsync(
                 stream,
                 _jsonContext.Cabinet,
                 cancellationToken)
             ?? throw new InvalidDataException($"Cabinet configuration is empty: {path}");
+
+        cabinet.ConfigFilePath = path;
+        return cabinet;
     }
 
     private async Task<IReadOnlyList<GameSystem>> ReadSystemsAsync( string directory, CancellationToken cancellationToken)
@@ -56,6 +59,7 @@ public sealed class ConfigReader
                     cancellationToken)
                 ?? throw new InvalidDataException($"System profile is empty: {path}");
 
+            system.ConfigFilePath = path;
             systems.Add(system);
         }
 
@@ -75,6 +79,7 @@ public sealed class ConfigReader
                     cancellationToken)
                 ?? throw new InvalidDataException($"Emulator profile is empty: {path}");
 
+            emulator.ConfigFilePath = path;
             emulators.Add(emulator);
         }
 
@@ -88,6 +93,7 @@ public sealed class ConfigReader
             throw new DirectoryNotFoundException($"Config directory not found: {directory}");
         }
 
-        return Directory.EnumerateFiles(directory, "*.json").OrderBy(path => path);
+        return Directory.EnumerateFiles(directory, "*.json").Where(path => !path.Contains(".example."))
+                                                            .OrderBy(path => path);
     }
 }

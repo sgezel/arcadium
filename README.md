@@ -15,7 +15,7 @@ It is intended to run fullscreen on Windows and Linux, scan local ROM and media 
 
 ## Development setup
 
-1. Install the .NET 8 SDK.
+1. Install the .NET 10 SDK.
 2. Install the Godot 4 .NET editor for UI development.
 3. Copy `config/cabinet.example.json` to `config/cabinet.json`.
 4. Copy `config/systems.example.json` to `config/systems.json`.

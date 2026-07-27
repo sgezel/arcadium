@@ -4,6 +4,10 @@ namespace Arcadium.Core.Models
 {
     public class Cabinet
     {
+        /// <summary>Path of the JSON file this configuration was loaded from. Not part of the JSON itself.</summary>
+        [JsonIgnore]
+        public string ConfigFilePath { get; set; } = string.Empty;
+
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
 
