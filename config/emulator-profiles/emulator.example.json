@@ -1,0 +1,12 @@
+{
+  "id": "mame",
+  "name": "MAME",  
+  "defaultExecutables": [
+    "mame"
+  ],
+  "extraConfig" : "", 
+  "arguments": [
+    "{rom} -rompath {romPath} -nowindow -joystick -nomouse -skip_gameinfo -noconfirm_quit"
+  ],
+  "launchMode": "wait"
+}

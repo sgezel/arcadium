@@ -27,7 +27,7 @@ Gebruik die oude repository uitsluitend als functionele en visuele referentie. B
 arcadium-godot/
 ├── Arcadium.sln
 ├── src/
-│   ├── Arcadium.Shared/       # domeinmodellen, repositories, launchercontracten
+│   ├── Arcadium.Core/         # domeinmodellen, repositories, launchercontracten
 │   ├── Arcadium.Scanner/      # C# CLI voor ROM- en mediascans
 │   └── Arcadium.Godot/        # Godot 4 .NET interface
 ├── database/migrations/       # genummerde SQLite-migraties
@@ -38,7 +38,7 @@ arcadium-godot/
 
 | Onderdeel | Verantwoordelijkheid |
 |---|---|
-| `Arcadium.Shared` | modellen, databasecontracten, scan- en launchlogica |
+| `Arcadium.Core` | modellen, databasecontracten, scan- en launchlogica |
 | `Arcadium.Scanner` | ROMs/media indexeren en SQLite bijwerken |
 | `Arcadium.Godot` | cabinet-UI, input, onderhoudsmodus, emulator launching |
 | `config/*.json` | systemen, emulatorprofielen en cabinetinstellingen |
@@ -58,10 +58,10 @@ Gebruik Godot 4 .NET. Alle eigen scripts zijn C#; scenes en themes blijven Godot
 ## Fase 1 — .NET solution
 
 1. Maak `Arcadium.sln`.
-2. Maak `Arcadium.Shared` als class library.
+2. Maak `Arcadium.Core` als class library.
 3. Maak `Arcadium.Scanner` als console-app.
 4. Maak `Arcadium.Godot` als Godot 4 .NET-project.
-5. Laat scanner en Godot verwijzen naar Shared.
+5. Laat scanner en Godot verwijzen naar Core.
 6. Voeg minimaal deze packages toe:
 
 ```text
@@ -91,7 +91,10 @@ Gebruik JSON voor beheerbare configuratie:
 ```text
 config/
 ├── cabinet.json
-├── systems.json
+├── system-profiles/
+│   ├── mame.json
+│   ├── snes.json
+│   └── ...
 └── emulator-profiles/
     ├── mame.json
     ├── retroarch.json
@@ -99,9 +102,11 @@ config/
     └── pcsx2.json
 ```
 
+Elk systeem en elk emulatorprofiel staat in een eigen JSON-bestand. Alleen de `*.example.json`-varianten worden in git getrackt; de echte bestanden bevatten machinespecifieke paden en worden genegeerd.
+
 De onderhoudsmodus bewerkt deze bestanden via een wizard; gevorderde beheerders mogen ze ook rechtstreeks aanpassen, back-uppen en tussen kasten kopiëren. Sla wijzigingen atomair op: schrijf, valideer en vervang pas daarna het bestaande bestand.
 
-`cabinet.json` bevat cabinetgedrag. `systems.json` bevat ROM- en mediapaden, extensies en een verwijzing naar een emulatorprofiel. Een profiel bevat per platform executable-zoeklocaties, argumenttemplates en launchgedrag.
+`cabinet.json` bevat cabinetgedrag. Een systeemprofiel in `system-profiles/` bevat ROM- en mediapaden, extensies en een verwijzing naar een emulatorprofiel. Een emulatorprofiel bevat executables, argumenttemplates en launchgedrag. `defaultExecutables` is één platte lijst: de beheerder zet daar zelf het juiste pad of commando voor de machine in; er zijn geen aparte platformblokken.
 
 Voorbeeld van `emulator-profiles/mame.json`:
 
@@ -109,26 +114,20 @@ Voorbeeld van `emulator-profiles/mame.json`:
 {
   "id": "mame",
   "name": "MAME",
-  "platforms": {
-    "windows": {
-      "defaultExecutables": ["C:\\Emulators\\MAME\\mame.exe"]
-    },
-    "linux": {
-      "defaultExecutables": ["/usr/games/mame", "/usr/bin/mame"]
-    }
-  },
-  "arguments": ["{rom}"],
+  "defaultExecutables": ["mame"],
+  "extraConfig": "",
+  "arguments": ["{rom} -rompath {romPath} -nowindow -joystick -nomouse -skip_gameinfo -noconfirm_quit"],
   "launchMode": "wait"
 }
 ```
 
-Voorbeeldrecord in `systems.json`:
+Voorbeeld van `system-profiles/mame.json`:
 
 ```json
 {
   "id": "mame",
   "name": "MAME",
-  "romPath": "D:\\Arcadium\\ROMs\\mame",
+  "romPath": ["D:\\Arcadium\\ROMs\\mame"],
   "mediaPath": "D:\\Arcadium\\Media\\mame",
   "extensions": [".zip", ".7z"],
   "emulatorProfile": "mame",
@@ -147,16 +146,16 @@ game_play_history
 schema_version
 ```
 
-### systems.json
+### system-profiles/*.json
 
-Bevat per systeem: id, naam, ROM-pad, mediapad, extensies, verwijzing naar emulatorprofiel, enabled en sortering. Bevat geen automatisch gegenereerde scaninformatie.
+Eén bestand per systeem. Bevat: id, naam, één of meer ROM-paden, mediapad, extensies, verwijzing naar emulatorprofiel, enabled en sortering. Bevat geen automatisch gegenereerde scaninformatie.
 
-Voorbeeld MAME-record:
+Voorbeeld `system-profiles/mame.json`:
 
 ```text
 id: mame
 name: MAME
-romPath: D:\Arcadium\ROMs\mame
+romPath: ["D:\Arcadium\ROMs\mame"]
 mediaPath: D:\Arcadium\Media\mame
 emulatorProfile: mame
 extensions: [".zip", ".7z"]
@@ -167,7 +166,7 @@ sortOrder: 1
 Op Linux zijn dezelfde waarden bijvoorbeeld:
 
 ```text
-romPath: /home/arcadium/ROMs/mame
+romPath: ["/home/arcadium/ROMs/mame"]
 mediaPath: /home/arcadium/Media/mame
 ```
 
@@ -182,11 +181,13 @@ Gebruik `UNIQUE(system_id, path)`, niet alleen basename: dezelfde naam kan in ve
 Bevat cabinetgedrag, bijvoorbeeld:
 
 ```text
-fullscreen                         true
-hide_cursor                        true
-idle_attract_mode_seconds          120
-maintenance_combo                  P1_START+P2_START+SERVICE
-return_to_library_after_game       true
+name                          Arcadium Cabinet
+fullscreen                    true
+hideCursor                    true
+idleAttractModeSeconds        120
+maintenanceCombo              P1_START+P2_START+SERVICE
+returnToLibraryAfterGame      true
+database                      arcadium.db
 ```
 
 ### Migraties
@@ -204,7 +205,7 @@ De scanner voert migraties uit bij start. Maak voor elke schemawijziging een dat
 
 ## Fase 3 — Eerste JSON-configuratie
 
-1. Maak `cabinet.json`, `systems.json` en `emulator-profiles/mame.json` handmatig vanuit de vastgelegde referentie.
+1. Maak `cabinet.json`, `system-profiles/mame.json` en `emulator-profiles/mame.json` handmatig vanuit de vastgelegde referentie.
 2. Vul de lokale ROM-, media- en emulatorpaden in via de onderhoudswizard.
 3. Valideer alle bestanden bij opstarten en toon concrete fouten voor ontbrekende velden of paden.
 4. Controleer het MAME-profiel met de ingebouwde test-launch.
@@ -216,12 +217,19 @@ De scanner voert migraties uit bij start. Maak voor elke schemawijziging een dat
 Maak deze CLI:
 
 ```bash
-arcadium-scanner scan init --db data/arcadium.db
-arcadium-scanner scan update --db data/arcadium.db
-arcadium-scanner scan verify --db data/arcadium.db
+arcadium-scanner scan init --config config --db data/arcadium.db
+arcadium-scanner scan update --config config --db data/arcadium.db
+arcadium-scanner scan verify --config config --db data/arcadium.db
 ```
 
-Optioneel:
+Reeds beschikbaar:
+
+```text
+--config, -c              map met de JSON-configuratie
+--check-configuration, -cc  valideer de configuratie en rapporteer fouten per bestand
+```
+
+Optioneel (gepland):
 
 ```text
 --system mame
@@ -479,7 +487,7 @@ Gebruik voor runtime-data:
 | Linux | `~/.local/share/Arcadium/arcadium.db` |
 | Godot | `user://arcadium.db` |
 
-ROMs en media mogen op een andere schijf staan; hun lokale paden worden in `systems.json` opgeslagen.
+ROMs en media mogen op een andere schijf staan; hun lokale paden worden in de systeemprofielen (`config/system-profiles/*.json`) opgeslagen.
 
 Autostart:
 
@@ -540,7 +548,7 @@ Bundel Godot-exportbestanden, C# assemblies, scanner-binary, assets en database-
 ## Implementatievolgorde
 
 1. Referentiegegevens en testset maken.
-2. .NET solution, Shared-project en SQLite-migraties maken.
+2. .NET solution, Core-project en SQLite-migraties maken.
 3. Eerste JSON-configuratie en MAME-profiel maken.
 4. C# scanner bouwen.
 5. Scanner op de testset valideren.
