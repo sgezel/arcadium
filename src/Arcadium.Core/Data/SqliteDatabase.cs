@@ -19,8 +19,6 @@ public sealed class SqliteDatabase
         {
             Directory.CreateDirectory(directory);
         }
-
-        ExecuteMigrations();
     }
 
     public SqliteConnection OpenReadWrite()
@@ -86,15 +84,5 @@ public sealed class SqliteDatabase
         using var command = connection.CreateCommand();
         command.CommandText = commandText;
         command.ExecuteNonQuery();
-    }
-
-    private void ExecuteMigrations()
-    {
-        SqliteConnection connection = OpenReadWrite();
-
-        MigrationRunner migrationRunner = new(connection);
-        migrationRunner.RunMigrations();
-
-        connection.Close();
     }
 }
