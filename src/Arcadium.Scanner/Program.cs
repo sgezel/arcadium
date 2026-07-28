@@ -1,47 +1,108 @@
-using Arcadium.Core.Models;
-using Arcadium.Core.Configuration;
 using System.Globalization;
+using System.Text.Json;
+using Arcadium.Core.Configuration;
+using Arcadium.Core.Data;
+using Arcadium.Core.Logging;
+using Arcadium.Core.Models;
+using Arcadium.Core.Scanning;
+
+Logger.Initialize(LogType.Console);
 
 string configDirectory = Path.Combine(AppContext.BaseDirectory, "config");
+string? databasePathOverride = null;
+string? systemFilter = null;
 bool checkConfiguration = false;
+bool dryRun = false;
+bool jsonOutput = false;
 ScanMode mode = ScanMode.Update;
 
 if (args.Length == 0 || args.Contains("--help") || args.Contains("-h"))
 {
-    Console.WriteLine("Arcadium ROM scanner");
-    Console.WriteLine("Usage: arcadium-scanner scan <init|update|verify> [--config <directory>] [--db <path>]");
-    return;
-}
-
-if (args.Length < 2)
-{
-    Console.Error.WriteLine("Invalid command. Run with --help for usage.");
-    Environment.ExitCode = 1;
+    Logger.LogInformation("Arcadium ROM scanner");
+    Logger.LogInformation("Usage: arcadium-scanner scan [init|update|verify] [options]");
+    Logger.LogInformation("Options:");
+    Logger.LogInformation("  --config, -c <directory>   Config directory (default: <exe>/config)");
+    Logger.LogInformation("  --db <path>                Database path (default: cabinet.json 'database')");
+    Logger.LogInformation("  --system, -s <id>          Only scan the system with this id");
+    Logger.LogInformation("  --dry-run                  Scan and report, but persist nothing");
+    Logger.LogInformation("  --json                     Emit NDJSON scan events on stdout");
+    Logger.LogInformation("  --check-configuration, -cc Validate the configuration and exit");
     return;
 }
 
 for (int i = 0; i < args.Length; i++)
 {
-    if(args[i] is "scan" && i + 1 < args.Length)
+    if (args[i] is "scan")
     {
-        mode = args[i + 1].ToLower(CultureInfo.CurrentCulture) switch
+        if (i + 1 < args.Length && args[i + 1].ToLower(CultureInfo.CurrentCulture) is "init" or "update" or "verify")
         {
-            "init" => ScanMode.Initialize,
-            "update" => ScanMode.Update,
-            "verify" => ScanMode.Verify,
-            _ => throw new ArgumentException($"Unknown scan mode '{args[i + 1]}'."),
-        };
+            mode = args[i + 1].ToLower(CultureInfo.CurrentCulture) switch
+            {
+                "init" => ScanMode.Initialize,
+                "verify" => ScanMode.Verify,
+                _ => ScanMode.Update,
+            };
 
-        i++; //skip the next argument since it's the scan mode
+            i++; // skip the next argument since it's the scan mode
+        }
     }
     else if (args[i] is "--config" or "-c" && i + 1 < args.Length)
     {
         configDirectory = args[i + 1];
-        i++; // Skip the next argument since it's the config path
+        i++;
+    }
+    else if (args[i] is "--db" && i + 1 < args.Length)
+    {
+        databasePathOverride = args[i + 1];
+        i++;
+    }
+    else if (args[i] is "--system" or "-s" && i + 1 < args.Length)
+    {
+        systemFilter = args[i + 1];
+        i++;
+    }
+    else if (args[i] is "--dry-run")
+    {
+        dryRun = true;
+    }
+    else if (args[i] is "--json")
+    {
+        jsonOutput = true;
     }
     else if (args[i] is "--check-configuration" or "-cc")
     {
         checkConfiguration = true;
+    }
+    else
+    {
+        Logger.LogError($"Unknown argument '{args[i]}'. Run with --help for usage.");
+        Environment.ExitCode = 1;
+        return;
+    }
+}
+
+// In --json mode stdout is reserved for NDJSON events; human output goes to stderr.
+void Info(string message)
+{
+    if (jsonOutput)
+    {
+        Console.Error.WriteLine(message);
+    }
+    else
+    {
+        Logger.LogInformation(message);
+    }
+}
+
+void Error(string message)
+{
+    if (jsonOutput)
+    {
+        Console.Error.WriteLine(message);
+    }
+    else
+    {
+        Logger.LogError(message);
     }
 }
 
@@ -49,11 +110,11 @@ ConfigReader configReader = new();
 ArcadiumConfiguration configuration;
 try
 {
-    configuration = await configReader.ReadAsync(configDirectory);    
+    configuration = await configReader.ReadAsync(configDirectory);
 }
 catch (Exception exception)
 {
-    Console.Error.WriteLine($"Failed to read configuration: {exception.Message}");
+    Error($"Failed to read configuration: {exception.Message}");
     Environment.ExitCode = 1;
     return;
 }
@@ -64,34 +125,119 @@ if (checkConfiguration)
 
     if (!validationResults.All(r => r.IsValid))
     {
-        foreach (var result in validationResults)
+        foreach (var result in validationResults.Where(r => !r.IsValid))
         {
-            if (!result.IsValid)
+            Error($"Configuration file '{result.ConfigFilePath}' has validation errors:");
+            foreach (var error in result.Errors)
             {
-                Console.Error.WriteLine($"Configuration file '{result.ConfigFilePath}' has validation errors:");
-                foreach (var error in result.Errors)
-                {
-                    Console.Error.WriteLine($"  - {error}");
-                }
+                Error($"  - {error}");
             }
         }
 
-        Console.Error.WriteLine("Configuration validation failed.");
+        Error("Configuration validation failed.");
         Environment.ExitCode = 1;
-        return;
     }
     else
     {
-        Console.WriteLine("Configuration is valid.");
-        return;
+        Info("Configuration is valid.");
     }
+
+    return;
 }
 
-Console.WriteLine($"Scan mode '{mode}' is scaffolded but not implemented yet.");
-
-foreach (var system in configuration.Systems)
+// Ctrl+C cancels gracefully: the engine finishes its current transaction handling and reports Aborted.
+using var cancellation = new CancellationTokenSource();
+Console.CancelKeyPress += (_, eventArgs) =>
 {
-    Console.WriteLine($"System: {system.Name}");
+    eventArgs.Cancel = true;
+    cancellation.Cancel();
+};
 
-    Console.WriteLine($"  ROM Path: {string.Join(", ", system.RomPath)}");
+string databasePath = databasePathOverride ?? configuration.Cabinet.Database;
+
+SqliteDatabase database = new(databasePath);
+ScanSummary summary;
+try
+{
+    using var connection = database.OpenReadWrite();
+    new MigrationRunner(connection).RunMigrations();
+
+    var repository = new ScanRepository(connection);
+    var engine = new ScanEngine(repository);
+
+    var options = new ScanOptions
+    {
+        Mode = mode,
+        SystemFilter = systemFilter,
+        DryRun = dryRun,
+    };
+
+    bool progressLineOpen = false;
+
+    void CloseProgressLine()
+    {
+        if (progressLineOpen)
+        {
+            Console.WriteLine();
+            progressLineOpen = false;
+        }
+    }
+
+    var progress = new InlineProgress<ScanEvent>(scanEvent =>
+    {
+        if (jsonOutput)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(scanEvent, ArcadiumJsonContext.Default.ScanEvent));
+            Console.Out.Flush();
+            return;
+        }
+
+        switch (scanEvent)
+        {
+            case ScanStarted started:
+                Info($"Scan started: mode={started.Mode}, systems={started.SystemCount}{(started.DryRun ? ", dry-run" : "")}");
+                break;
+            case SystemScanStarted systemStarted:
+                Info($"[{systemStarted.SystemIndex}/{systemStarted.SystemCount}] Scanning {systemStarted.SystemName} ({systemStarted.SystemId})");
+                break;
+            case FileProgress fileProgress:
+                Console.Write($"\r  {fileProgress.Processed}/{fileProgress.Total} {fileProgress.CurrentFile ?? ""}          ");
+                progressLineOpen = true;
+                if (fileProgress.Processed == fileProgress.Total)
+                {
+                    CloseProgressLine();
+                }
+                break;
+            case ScanWarning warning:
+                CloseProgressLine();
+                Logger.LogWarning($"{warning.Message}{(warning.Path is null ? "" : $" ({warning.Path})")}");
+                break;
+            case SystemScanCompleted systemCompleted:
+                CloseProgressLine();
+                SystemScanStats stats = systemCompleted.Stats;
+                Info($"  Done: {stats.FilesSeen} seen, {stats.Added} added, {stats.Updated} updated, {stats.Unchanged} unchanged, {stats.Deleted} deleted, {stats.Warnings} warnings");
+                break;
+            case ScanCompleted completed:
+                CloseProgressLine();
+                Info($"Scan {(completed.Summary.Aborted ? "aborted" : "completed")} in {completed.Summary.Duration.TotalSeconds:F1}s: " +
+                     $"{completed.Summary.Totals.Added} added, {completed.Summary.Totals.Updated} updated, " +
+                     $"{completed.Summary.Totals.Deleted} deleted, {completed.Summary.Totals.Warnings} warnings");
+                break;
+        }
+    });
+
+    summary = await engine.RunAsync(configuration, options, progress, cancellation.Token);
 }
+catch (Exception exception)
+{
+    Error($"Scan failed: {exception.Message}");
+    Environment.ExitCode = 1;
+    return;
+}
+
+Environment.ExitCode = summary switch
+{
+    { Aborted: true } => 3,
+    { Totals.Errors: > 0 } => 2,
+    _ => 0,
+};
