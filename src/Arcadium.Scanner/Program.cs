@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using Arcadium.Core.Configuration;
 using Arcadium.Core.Data;
 using Arcadium.Core.Logging;
+using Arcadium.Core.Mame;
 using Arcadium.Core.Models;
 using Arcadium.Core.Scanning;
 
@@ -14,12 +16,16 @@ string? systemFilter = null;
 bool checkConfiguration = false;
 bool dryRun = false;
 bool jsonOutput = false;
+bool importMame = false;
+string? mameExecutableOverride = null;
+string? mameXmlPath = null;
 ScanMode mode = ScanMode.Update;
 
 if (args.Length == 0 || args.Contains("--help") || args.Contains("-h"))
 {
     Logger.LogInformation("Arcadium ROM scanner");
     Logger.LogInformation("Usage: arcadium-scanner scan [init|update|verify] [options]");
+    Logger.LogInformation("       arcadium-scanner import-mame [options]");
     Logger.LogInformation("Options:");
     Logger.LogInformation("  --config, -c <directory>   Config directory (default: <exe>/config)");
     Logger.LogInformation("  --db <path>                Database path (default: cabinet.json 'database')");
@@ -27,6 +33,9 @@ if (args.Length == 0 || args.Contains("--help") || args.Contains("-h"))
     Logger.LogInformation("  --dry-run                  Scan and report, but persist nothing");
     Logger.LogInformation("  --json                     Emit NDJSON scan events on stdout");
     Logger.LogInformation("  --check-configuration, -cc Validate the configuration and exit");
+    Logger.LogInformation("import-mame options:");
+    Logger.LogInformation("  --mame <path>              MAME executable (default: emulator profile 'mame')");
+    Logger.LogInformation("  --xml <path>               Read an existing -listxml dump instead of running MAME");
     return;
 }
 
@@ -45,6 +54,20 @@ for (int i = 0; i < args.Length; i++)
 
             i++; // skip the next argument since it's the scan mode
         }
+    }
+    else if (args[i] is "import-mame")
+    {
+        importMame = true;
+    }
+    else if (args[i] is "--mame" && i + 1 < args.Length)
+    {
+        mameExecutableOverride = args[i + 1];
+        i++;
+    }
+    else if (args[i] is "--xml" && i + 1 < args.Length)
+    {
+        mameXmlPath = args[i + 1];
+        i++;
     }
     else if (args[i] is "--config" or "-c" && i + 1 < args.Length)
     {
@@ -156,6 +179,99 @@ Console.CancelKeyPress += (_, eventArgs) =>
 string databasePath = databasePathOverride ?? configuration.Cabinet.Database;
 
 SqliteDatabase database = new(databasePath);
+
+if (importMame)
+{
+    try
+    {
+        using var connection = database.OpenReadWrite();
+        new MigrationRunner(connection).RunMigrations();
+
+        using var repository = new MameRepository(connection);
+        var importer = new MameXmlImporter(repository);
+
+        bool importProgressLineOpen = false;
+        var importProgress = new InlineProgress<MameImportProgress>(p =>
+        {
+            if (!jsonOutput)
+            {
+                Console.Write($"\r  {p.MachinesParsed} machines {(p.CurrentMachine is null ? "" : $"({p.CurrentMachine})")}          ");
+                importProgressLineOpen = true;
+            }
+        });
+
+        MameImportResult result;
+        if (mameXmlPath is not null)
+        {
+            Info($"Importing MAME metadata from {mameXmlPath}");
+            using FileStream xmlStream = File.OpenRead(mameXmlPath);
+            result = importer.Import(xmlStream, importProgress, cancellation.Token);
+        }
+        else
+        {
+            string mameExecutable = mameExecutableOverride
+                ?? configuration.Emulators
+                    .FirstOrDefault(emulator => string.Equals(emulator.Id, "mame", StringComparison.OrdinalIgnoreCase))
+                    ?.DefaultExecutables.FirstOrDefault()
+                ?? "mame";
+
+            Info($"Importing MAME metadata from '{mameExecutable} -listxml'");
+
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
+            {
+                FileName = mameExecutable,
+                ArgumentList = { "-listxml" },
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+            };
+
+            if (!process.Start())
+            {
+                throw new InvalidOperationException($"Could not start '{mameExecutable}'.");
+            }
+
+            try
+            {
+                result = importer.Import(process.StandardOutput.BaseStream, importProgress, cancellation.Token);
+            }
+            catch
+            {
+                // Cancellation or a parse error: stop MAME too instead of letting it
+                // keep writing XML to a closed pipe.
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+
+                throw;
+            }
+
+            process.WaitForExit();
+        }
+
+        if (importProgressLineOpen)
+        {
+            Console.WriteLine();
+        }
+
+        Info($"Import completed in {result.Duration.TotalSeconds:F1}s: MAME {result.Build}, " +
+             $"{result.MachineCount} machines, {result.RomCount} rom dumps, {result.ControlCount} controls");
+    }
+    catch (OperationCanceledException)
+    {
+        Error("MAME import aborted; no changes were committed.");
+        Environment.ExitCode = 3;
+    }
+    catch (Exception exception)
+    {
+        Error($"MAME import failed: {exception.Message}");
+        Environment.ExitCode = 1;
+    }
+
+    return;
+}
+
 ScanSummary summary;
 try
 {
