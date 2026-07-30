@@ -7,6 +7,7 @@ using Arcadium.Core.Logging;
 using Arcadium.Core.Mame;
 using Arcadium.Core.Models;
 using Arcadium.Core.Scanning;
+using Microsoft.Data.Sqlite;
 
 Logger.Initialize(LogType.Console);
 
@@ -148,10 +149,10 @@ if (checkConfiguration)
 
     if (!validationResults.All(r => r.IsValid))
     {
-        foreach (var result in validationResults.Where(r => !r.IsValid))
+        foreach (ConfigValidationResult? result in validationResults.Where(r => !r.IsValid))
         {
             Error($"Configuration file '{result.ConfigFilePath}' has validation errors:");
-            foreach (var error in result.Errors)
+            foreach (string error in result.Errors)
             {
                 Error($"  - {error}");
             }
@@ -169,7 +170,7 @@ if (checkConfiguration)
 }
 
 // Ctrl+C cancels gracefully: the engine finishes its current transaction handling and reports Aborted.
-using var cancellation = new CancellationTokenSource();
+using CancellationTokenSource cancellation = new CancellationTokenSource();
 Console.CancelKeyPress += (_, eventArgs) =>
 {
     eventArgs.Cancel = true;
@@ -184,14 +185,14 @@ if (importMame)
 {
     try
     {
-        using var connection = database.OpenReadWrite();
+        using SqliteConnection connection = database.OpenReadWrite();
         new MigrationRunner(connection).RunMigrations();
 
-        using var repository = new MameRepository(connection);
-        var importer = new MameXmlImporter(repository);
+        using MameRepository repository = new MameRepository(connection);
+        MameXmlImporter importer = new MameXmlImporter(repository);
 
         bool importProgressLineOpen = false;
-        var importProgress = new InlineProgress<MameImportProgress>(p =>
+        InlineProgress<MameImportProgress> importProgress = new InlineProgress<MameImportProgress>(p =>
         {
             if (!jsonOutput)
             {
@@ -217,7 +218,7 @@ if (importMame)
 
             Info($"Importing MAME metadata from '{mameExecutable} -listxml'");
 
-            using var process = new Process();
+            using Process process = new Process();
             process.StartInfo = new ProcessStartInfo
             {
                 FileName = mameExecutable,
@@ -275,13 +276,13 @@ if (importMame)
 ScanSummary summary;
 try
 {
-    using var connection = database.OpenReadWrite();
+    using SqliteConnection connection = database.OpenReadWrite();
     new MigrationRunner(connection).RunMigrations();
 
-    var repository = new ScanRepository(connection);
-    var engine = new ScanEngine(repository);
+    ScanRepository repository = new ScanRepository(connection);
+    ScanEngine engine = new ScanEngine(repository);
 
-    var options = new ScanOptions
+    ScanOptions options = new ScanOptions
     {
         Mode = mode,
         SystemFilter = systemFilter,
@@ -299,7 +300,7 @@ try
         }
     }
 
-    var progress = new InlineProgress<ScanEvent>(scanEvent =>
+    InlineProgress<ScanEvent> progress = new InlineProgress<ScanEvent>(scanEvent =>
     {
         if (jsonOutput)
         {

@@ -65,7 +65,7 @@ public sealed class MameRepository : IDisposable
     /// <summary>Removes all machines; rom and control rows follow via ON DELETE CASCADE.</summary>
     public void ClearMachines()
     {
-        using var command = CreateCommand();
+        using SqliteCommand command = CreateCommand();
         command.CommandText = "DELETE FROM mame_machines;";
         command.ExecuteNonQuery();
     }
@@ -116,7 +116,7 @@ public sealed class MameRepository : IDisposable
     {
         ArgumentNullException.ThrowIfNull(build);
 
-        using var command = CreateCommand();
+        using SqliteCommand command = CreateCommand();
         command.CommandText = @"
             INSERT INTO mame_imports (build, machine_count, imported_at)
             VALUES ($build, $machineCount, $importedAt);
@@ -186,7 +186,7 @@ public sealed class MameRepository : IDisposable
 
     private MameMachine? ReadMachine(string name)
     {
-        using var command = CreateCommand();
+        using SqliteCommand command = CreateCommand();
         command.CommandText = @"
             SELECT name, sourcefile, description, year, manufacturer,
                    clone_of, rom_of, sample_of,
@@ -237,7 +237,7 @@ public sealed class MameRepository : IDisposable
 
     private void ReadMachineRoms(MameMachine machine)
     {
-        using var command = CreateCommand();
+        using SqliteCommand command = CreateCommand();
         command.CommandText = @"
             SELECT name, size_bytes, crc, sha1, merge_name, region, status, is_optional
             FROM mame_machine_roms
@@ -263,7 +263,7 @@ public sealed class MameRepository : IDisposable
 
     private void ReadMachineControls(MameMachine machine)
     {
-        using var command = CreateCommand();
+        using SqliteCommand command = CreateCommand();
         command.CommandText = @"
             SELECT type, player, buttons, ways
             FROM mame_machine_controls

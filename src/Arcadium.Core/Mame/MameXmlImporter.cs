@@ -31,8 +31,8 @@ public sealed class MameXmlImporter
     {
         ArgumentNullException.ThrowIfNull(xmlStream);
 
-        var stopwatch = Stopwatch.StartNew();
-        var settings = new XmlReaderSettings
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        XmlReaderSettings settings = new XmlReaderSettings
         {
             // The listxml output starts with an internal DTD; skip it. Attribute defaults
             // from the DTD are therefore not applied and are handled while parsing.
@@ -41,7 +41,7 @@ public sealed class MameXmlImporter
             IgnoreWhitespace = true,
         };
 
-        using var reader = XmlReader.Create(xmlStream, settings);
+        using XmlReader reader = XmlReader.Create(xmlStream, settings);
 
         string build = string.Empty;
         int machineCount = 0;
@@ -106,7 +106,7 @@ public sealed class MameXmlImporter
 
     private static MameMachine ReadMachine(XmlReader outer)
     {
-        var machine = new MameMachine
+        MameMachine machine = new MameMachine
         {
             Name = outer.GetAttribute("name")
                 ?? throw new InvalidDataException("Encountered a <machine> element without a name attribute."),

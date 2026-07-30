@@ -55,7 +55,7 @@ public sealed class MediaIndex
 
     private static Dictionary<string, string> IndexFolder(string mediaPath, string folderName)
     {
-        var index = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string> index = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         if (string.IsNullOrWhiteSpace(mediaPath))
         {
@@ -68,7 +68,7 @@ public sealed class MediaIndex
             return index;
         }
 
-        var enumeration = new EnumerationOptions { IgnoreInaccessible = true };
+        EnumerationOptions enumeration = new EnumerationOptions { IgnoreInaccessible = true };
         foreach (string path in Directory.EnumerateFiles(folder, "*", enumeration))
         {
             index.TryAdd(Path.GetFileNameWithoutExtension(path), path);

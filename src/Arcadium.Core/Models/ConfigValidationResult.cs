@@ -1,4 +1,5 @@
 namespace Arcadium.Core.Models;
+
 public class ConfigValidationResult
 {
     public string ConfigFilePath { get; set; } = string.Empty;

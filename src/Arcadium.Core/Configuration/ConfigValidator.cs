@@ -2,11 +2,12 @@ using Arcadium.Core.Models;
 using GameSystem = Arcadium.Core.Models.System;
 
 namespace Arcadium.Core.Configuration;
+
 public static class ConfigValidator
 {
     public static List<ConfigValidationResult> ValidateConfiguration(ArcadiumConfiguration configuration)
     {
-        var results = new List<ConfigValidationResult>
+        List<ConfigValidationResult> results = new List<ConfigValidationResult>
         {
             ValidateCabinet(configuration.Cabinet)
         };
@@ -19,7 +20,7 @@ public static class ConfigValidator
 
     private static ConfigValidationResult ValidateCabinet(Cabinet cabinet)
     {
-        var result = NewResult(cabinet?.ConfigFilePath, "cabinet.json");
+        ConfigValidationResult result = NewResult(cabinet?.ConfigFilePath, "cabinet.json");
 
         if (cabinet == null)
         {
@@ -45,25 +46,25 @@ public static class ConfigValidator
 
     private static List<ConfigValidationResult> ValidateSystems(IReadOnlyList<GameSystem> systems, IReadOnlyList<Emulator> emulators)
     {
-        var results = new List<ConfigValidationResult>();
+        List<ConfigValidationResult> results = new List<ConfigValidationResult>();
 
         if (systems == null || systems.Count == 0)
         {
-            var emptyResult = NewResult(null, "system-profiles");
+            ConfigValidationResult emptyResult = NewResult(null, "system-profiles");
             emptyResult.IsValid = false;
             emptyResult.Errors.Add("No system profiles found.");
             results.Add(emptyResult);
             return results;
         }
 
-        var emulatorIds = new HashSet<string>(
+        HashSet<string> emulatorIds = new HashSet<string>(
             (emulators ?? []).Select(emulator => emulator.Id),
             StringComparer.OrdinalIgnoreCase);
-        var seenSystemIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> seenSystemIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var system in systems)
+        foreach (GameSystem system in systems)
         {
-            var result = NewResult(system.ConfigFilePath, $"system-profiles/{system.Id}");
+            ConfigValidationResult result = NewResult(system.ConfigFilePath, $"system-profiles/{system.Id}");
             results.Add(result);
 
             if (string.IsNullOrWhiteSpace(system.Id))
@@ -90,7 +91,7 @@ public static class ConfigValidator
             }
             else
             {
-                foreach (var path in system.RomPath)
+                foreach (string path in system.RomPath)
                 {
                     if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
                     {
@@ -117,22 +118,22 @@ public static class ConfigValidator
 
     private static List<ConfigValidationResult> ValidateEmulators(IReadOnlyList<Emulator> emulators)
     {
-        var results = new List<ConfigValidationResult>();
+        List<ConfigValidationResult> results = new List<ConfigValidationResult>();
 
         if (emulators == null || emulators.Count == 0)
         {
-            var emptyResult = NewResult(null, "emulator-profiles");
+            ConfigValidationResult emptyResult = NewResult(null, "emulator-profiles");
             emptyResult.IsValid = false;
             emptyResult.Errors.Add("No emulator profiles found.");
             results.Add(emptyResult);
             return results;
         }
 
-        var seenEmulatorIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> seenEmulatorIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var emulator in emulators)
+        foreach (Emulator emulator in emulators)
         {
-            var result = NewResult(emulator.ConfigFilePath, $"emulator-profiles/{emulator.Id}");
+            ConfigValidationResult result = NewResult(emulator.ConfigFilePath, $"emulator-profiles/{emulator.Id}");
             results.Add(result);
 
             if (string.IsNullOrWhiteSpace(emulator.Id))
@@ -159,7 +160,7 @@ public static class ConfigValidator
             }
             else
             {
-                foreach (var executable in emulator.DefaultExecutables)
+                foreach (string executable in emulator.DefaultExecutables)
                 {
                     if (string.IsNullOrWhiteSpace(executable))
                     {

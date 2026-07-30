@@ -37,7 +37,7 @@ public class MigrationRunner
 
     private void EnsureSchemaVersionTable()
     {
-        using var command = _connection.CreateCommand();
+        using SqliteCommand command = _connection.CreateCommand();
         command.CommandText = @"
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER PRIMARY KEY,
@@ -49,7 +49,7 @@ public class MigrationRunner
 
     private long GetCurrentVersion()
     {
-        using var command = _connection.CreateCommand();
+        using SqliteCommand command = _connection.CreateCommand();
         command.CommandText = "SELECT COALESCE(MAX(version), 0) FROM schema_version;";
 
         return (long)command.ExecuteScalar()!;
@@ -86,8 +86,8 @@ public class MigrationRunner
         Logger.LogInformation($"Applying migration {version}: {resourceName}");
         string migrationSql = ReadScript(resourceName);
 
-        using var transaction = _connection.BeginTransaction();
-        using var command = _connection.CreateCommand();
+        using SqliteTransaction transaction = _connection.BeginTransaction();
+        using SqliteCommand command = _connection.CreateCommand();
         command.Transaction = transaction;
 
         command.CommandText = migrationSql;

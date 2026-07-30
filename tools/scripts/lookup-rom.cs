@@ -8,6 +8,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Arcadium.Core.Data;
+using Arcadium.Core.Mame;
 using Arcadium.Core.Models;
 using Microsoft.Data.Sqlite;
 
@@ -23,9 +24,9 @@ string databasePath = args.Length > 2 ? args[2] : ReadDatabasePathFromConfig();
 
 Console.WriteLine($"Database: {databasePath}");
 
-var database = new SqliteDatabase(databasePath);
+SqliteDatabase database = new(databasePath);
 using SqliteConnection connection = database.OpenReadOnly();
-var repository = new LibraryRepository(connection);
+LibraryRepository repository = new(connection);
 
 LibraryRom? result = repository.GetLibraryRom(systemId, baseName);
 if (result is null)
@@ -48,7 +49,7 @@ if (result.Machine is null)
     return 0;
 }
 
-var machine = result.Machine;
+MameMachine machine = result.Machine;
 Console.WriteLine();
 Console.WriteLine($"Machine '{machine.Name}': {machine.Description}");
 Console.WriteLine($"  Year: {machine.Year ?? "?"}   Manufacturer: {machine.Manufacturer ?? "?"}");
@@ -58,14 +59,14 @@ Console.WriteLine($"  CloneOf: {machine.CloneOf ?? "-"}   RequiresChd: {machine.
 
 Console.WriteLine();
 Console.WriteLine($"  Controls ({machine.Controls.Count}):");
-foreach (var control in machine.Controls)
+foreach (MameControl control in machine.Controls)
 {
     Console.WriteLine($"    player {control.Player?.ToString(CultureInfo.InvariantCulture) ?? "?"}: {control.Type} buttons={control.Buttons?.ToString(CultureInfo.InvariantCulture) ?? "?"} ways={control.Ways ?? "-"}");
 }
 
 Console.WriteLine();
 Console.WriteLine($"  Rom dumps ({machine.Roms.Count}):");
-foreach (var dump in machine.Roms)
+foreach (MameRomDump dump in machine.Roms)
 {
     Console.WriteLine($"    {dump.Name,-20} {dump.SizeBytes,10:N0}  crc={dump.Crc ?? "-"}  status={dump.Status}");
 }

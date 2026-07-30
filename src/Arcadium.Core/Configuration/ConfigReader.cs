@@ -21,9 +21,9 @@ public sealed class ConfigReader
             throw new DirectoryNotFoundException($"Config directory not found: {configDirectory}");
         }
 
-        var cabinetPath = Path.Combine(configDirectory, "cabinet.json");
-        var systemsDirectory = Path.Combine(configDirectory, "system-profiles");
-        var emulatorsDirectory = Path.Combine(configDirectory, "emulator-profiles");
+        string cabinetPath = Path.Combine(configDirectory, "cabinet.json");
+        string systemsDirectory = Path.Combine(configDirectory, "system-profiles");
+        string emulatorsDirectory = Path.Combine(configDirectory, "emulator-profiles");
 
         return new ArcadiumConfiguration
         {
@@ -35,18 +35,18 @@ public sealed class ConfigReader
 
     private async Task<Cabinet> ReadCabinetAsync(string path, CancellationToken cancellationToken)
     {
-        var cabinet = await DeserializeFileAsync(path, _jsonContext.Cabinet, "Cabinet configuration", cancellationToken);
+        Cabinet cabinet = await DeserializeFileAsync(path, _jsonContext.Cabinet, "Cabinet configuration", cancellationToken);
         cabinet.ConfigFilePath = path;
         return cabinet;
     }
 
-    private async Task<IReadOnlyList<GameSystem>> ReadSystemsAsync( string directory, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<GameSystem>> ReadSystemsAsync(string directory, CancellationToken cancellationToken)
     {
-        var systems = new List<GameSystem>();
+        List<GameSystem> systems = new List<GameSystem>();
 
-        foreach (var path in EnumerateJsonFiles(directory))
+        foreach (string path in EnumerateJsonFiles(directory))
         {
-            var system = await DeserializeFileAsync(path, _jsonContext.System, "System profile", cancellationToken);
+            GameSystem system = await DeserializeFileAsync(path, _jsonContext.System, "System profile", cancellationToken);
             system.ConfigFilePath = path;
             systems.Add(system);
         }
@@ -56,11 +56,11 @@ public sealed class ConfigReader
 
     private async Task<IReadOnlyList<Emulator>> ReadEmulatorsAsync(string directory, CancellationToken cancellationToken)
     {
-        var emulators = new List<Emulator>();
+        List<Emulator> emulators = new List<Emulator>();
 
-        foreach (var path in EnumerateJsonFiles(directory))
+        foreach (string path in EnumerateJsonFiles(directory))
         {
-            var emulator = await DeserializeFileAsync(path, _jsonContext.Emulator, "Emulator profile", cancellationToken);
+            Emulator emulator = await DeserializeFileAsync(path, _jsonContext.Emulator, "Emulator profile", cancellationToken);
             emulator.ConfigFilePath = path;
             emulators.Add(emulator);
         }
@@ -70,7 +70,7 @@ public sealed class ConfigReader
 
     private static async Task<T> DeserializeFileAsync<T>(string path, JsonTypeInfo<T> typeInfo, string description, CancellationToken cancellationToken)
     {
-        await using var stream = File.OpenRead(path);
+        await using FileStream stream = File.OpenRead(path);
 
         try
         {

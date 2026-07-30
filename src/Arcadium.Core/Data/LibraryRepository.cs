@@ -35,7 +35,7 @@ public sealed class LibraryRepository
             return null;
         }
 
-        using var mameRepository = new MameRepository(_connection);
+        using MameRepository mameRepository = new MameRepository(_connection);
         MameMachine? machine = mameRepository.GetMachineByName(rom.Basename);
 
         return new LibraryRom

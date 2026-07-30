@@ -59,7 +59,7 @@ public sealed class ScanRepository
 
     public long BeginScanRun(ScanMode mode, string? systemId, DateTime startedAtUtc)
     {
-        using var command = CreateCommand();
+        using SqliteCommand command = CreateCommand();
         command.CommandText = @"
             INSERT INTO scan_runs (system_id, mode, started_at)
             VALUES ($systemId, $mode, $startedAt);
@@ -76,7 +76,7 @@ public sealed class ScanRepository
     {
         ArgumentNullException.ThrowIfNull(totals);
 
-        using var command = CreateCommand();
+        using SqliteCommand command = CreateCommand();
         command.CommandText = @"
             UPDATE scan_runs
             SET finished_at = $finishedAt,
@@ -104,7 +104,7 @@ public sealed class ScanRepository
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(systemId);
 
-        using var command = CreateCommand();
+        using SqliteCommand command = CreateCommand();
         command.CommandText = @"
             SELECT id, system_id, filename, basename, path,
                    wheel_path, video_path, marquee_path, physical_path, game_image_path,
@@ -115,11 +115,11 @@ public sealed class ScanRepository
         ";
         command.Parameters.AddWithValue("$systemId", systemId);
 
-        var roms = new Dictionary<string, RomRecord>(StringComparer.Ordinal);
-        using var reader = command.ExecuteReader();
+        Dictionary<string, RomRecord> roms = new Dictionary<string, RomRecord>(StringComparer.Ordinal);
+        using SqliteDataReader reader = command.ExecuteReader();
         while (reader.Read())
         {
-            var rom = new RomRecord
+            RomRecord rom = new RomRecord
             {
                 Id = reader.GetInt64(0),
                 SystemId = reader.GetString(1),
@@ -151,7 +151,7 @@ public sealed class ScanRepository
     {
         ArgumentNullException.ThrowIfNull(rom);
 
-        using var command = CreateCommand();
+        using SqliteCommand command = CreateCommand();
         command.CommandText = @"
             INSERT INTO roms (
                 system_id, filename, basename, path,
@@ -201,7 +201,7 @@ public sealed class ScanRepository
     /// </summary>
     public void TouchRom(long romId, DateTime lastSeenAtUtc)
     {
-        using var command = CreateCommand();
+        using SqliteCommand command = CreateCommand();
         command.CommandText = "UPDATE roms SET last_seen_at = $lastSeenAt WHERE id = $id;";
         command.Parameters.AddWithValue("$id", romId);
         command.Parameters.AddWithValue("$lastSeenAt", lastSeenAtUtc);
@@ -216,7 +216,7 @@ public sealed class ScanRepository
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(systemId);
 
-        using var command = CreateCommand();
+        using SqliteCommand command = CreateCommand();
         command.CommandText = @"
             UPDATE roms
             SET scan_state = 'deleted',
@@ -234,7 +234,7 @@ public sealed class ScanRepository
 
     private SqliteCommand CreateCommand()
     {
-        var command = _connection.CreateCommand();
+        SqliteCommand command = _connection.CreateCommand();
         command.Transaction = _transaction;
 
         return command;

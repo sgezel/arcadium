@@ -42,7 +42,7 @@ public sealed class ScanEngine
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(options);
 
-        var stopwatch = Stopwatch.StartNew();
+        Stopwatch stopwatch = Stopwatch.StartNew();
 
         GameSystem[] systems = configuration.Systems
             .Where(system => system.Enabled)
@@ -53,7 +53,7 @@ public sealed class ScanEngine
 
         progress?.Report(new ScanStarted(options.Mode, systems.Length, options.DryRun));
 
-        var perSystem = new Dictionary<string, SystemScanStats>();
+        Dictionary<string, SystemScanStats> perSystem = new Dictionary<string, SystemScanStats>();
         bool aborted = false;
 
         for (int index = 0; index < systems.Length; index++)
@@ -79,7 +79,7 @@ public sealed class ScanEngine
         }
 
         SystemScanStats totals = Accumulate(perSystem.Values);
-        var summary = new ScanSummary(aborted, stopwatch.Elapsed, perSystem, totals);
+        ScanSummary summary = new ScanSummary(aborted, stopwatch.Elapsed, perSystem, totals);
         progress?.Report(new ScanCompleted(summary));
 
         return summary;
@@ -122,7 +122,7 @@ public sealed class ScanEngine
             int added = 0;
             int updated = 0;
             int unchanged = 0;
-            var throttle = Stopwatch.StartNew();
+            Stopwatch throttle = Stopwatch.StartNew();
 
             for (int index = 0; index < files.Count; index++)
             {
@@ -204,7 +204,7 @@ public sealed class ScanEngine
 
             int deleted = _repository.MarkUnseenAsDeleted(system.Id, scanStart);
 
-            var stats = new SystemScanStats(files.Count, added, updated, unchanged, deleted, warnings, 0);
+            SystemScanStats stats = new SystemScanStats(files.Count, added, updated, unchanged, deleted, warnings, 0);
             _repository.CompleteScanRun(scanRunId, stats, DateTime.UtcNow);
 
             if (persist)
@@ -237,12 +237,12 @@ public sealed class ScanEngine
         Action<string, string?> warn,
         CancellationToken cancellationToken)
     {
-        var extensions = new HashSet<string>(
+        HashSet<string> extensions = new HashSet<string>(
             system.Extensions.Select(extension => extension.StartsWith('.') ? extension : "." + extension),
             StringComparer.OrdinalIgnoreCase);
 
-        var files = new List<FileInfo>();
-        var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        List<FileInfo> files = new List<FileInfo>();
+        HashSet<string> seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (string root in system.RomPath)
         {
@@ -254,7 +254,7 @@ public sealed class ScanEngine
                 continue;
             }
 
-            var enumeration = new EnumerationOptions
+            EnumerationOptions enumeration = new EnumerationOptions
             {
                 RecurseSubdirectories = true,
                 IgnoreInaccessible = true
@@ -276,7 +276,7 @@ public sealed class ScanEngine
 
     private static SystemScanStats Accumulate(IEnumerable<SystemScanStats> allStats)
     {
-        var totals = new SystemScanStats(0, 0, 0, 0, 0, 0, 0);
+        SystemScanStats totals = new SystemScanStats(0, 0, 0, 0, 0, 0, 0);
 
         foreach (SystemScanStats stats in allStats)
         {

@@ -14,7 +14,7 @@ public sealed class SqliteDatabase
 
         _databasePath = Path.GetFullPath(databasePath);
 
-        var directory = Path.GetDirectoryName(_databasePath);
+        string? directory = Path.GetDirectoryName(_databasePath);
         if (!string.IsNullOrWhiteSpace(directory))
         {
             Directory.CreateDirectory(directory);
@@ -23,7 +23,7 @@ public sealed class SqliteDatabase
 
     public SqliteConnection OpenReadWrite()
     {
-        var connection = CreateConnection(SqliteOpenMode.ReadWriteCreate);
+        SqliteConnection connection = CreateConnection(SqliteOpenMode.ReadWriteCreate);
         connection.Open();
 
         try
@@ -42,7 +42,7 @@ public sealed class SqliteDatabase
 
     public SqliteConnection OpenReadOnly()
     {
-        var connection = CreateConnection(SqliteOpenMode.ReadOnly);
+        SqliteConnection connection = CreateConnection(SqliteOpenMode.ReadOnly);
         connection.Open();
 
         try
@@ -60,7 +60,7 @@ public sealed class SqliteDatabase
 
     private SqliteConnection CreateConnection(SqliteOpenMode mode)
     {
-        var connectionString = new SqliteConnectionStringBuilder
+        string connectionString = new SqliteConnectionStringBuilder
         {
             DataSource = _databasePath,
             Mode = mode
@@ -81,7 +81,7 @@ public sealed class SqliteDatabase
         SqliteConnection connection,
         string commandText)
     {
-        using var command = connection.CreateCommand();
+        using SqliteCommand command = connection.CreateCommand();
         command.CommandText = commandText;
         command.ExecuteNonQuery();
     }
