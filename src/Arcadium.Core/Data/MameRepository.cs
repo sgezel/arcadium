@@ -4,8 +4,8 @@ using Microsoft.Data.Sqlite;
 namespace Arcadium.Core.Data;
 
 /// <summary>
-/// Data access for MAME metadata imports. The caller owns the connection; the whole import
-/// runs in one transaction. Insert commands are prepared once and reused because an import
+/// Data access for MAME metadata imports and lookups. The caller owns the connection; the whole
+/// import runs in one transaction. Insert commands are prepared once and reused because an import
 /// writes hundreds of thousands of rows.
 /// </summary>
 public sealed class MameRepository : IDisposable
@@ -129,6 +129,23 @@ public sealed class MameRepository : IDisposable
         return (long)command.ExecuteScalar()!;
     }
 
+    /// <summary>Loads one machine with its rom dumps and controls, or null when unknown.</summary>
+    public MameMachine? GetMachineByName(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        MameMachine? machine = ReadMachine(name);
+        if (machine is null)
+        {
+            return null;
+        }
+
+        ReadMachineRoms(machine);
+        ReadMachineControls(machine);
+
+        return machine;
+    }
+
     public void Dispose()
     {
         DisposeCachedCommands();
@@ -165,6 +182,105 @@ public sealed class MameRepository : IDisposable
         command.Parameters["$buttons"].Value = (object?)control.Buttons ?? DBNull.Value;
         command.Parameters["$ways"].Value = (object?)control.Ways ?? DBNull.Value;
         command.ExecuteNonQuery();
+    }
+
+    private MameMachine? ReadMachine(string name)
+    {
+        using var command = CreateCommand();
+        command.CommandText = @"
+            SELECT name, sourcefile, description, year, manufacturer,
+                   clone_of, rom_of, sample_of,
+                   is_bios, is_device, is_mechanical, runnable,
+                   driver_status, driver_emulation, driver_savestate,
+                   players, coins,
+                   display_type, display_rotate, display_width, display_height, display_refresh,
+                   sound_channels, requires_chd
+            FROM mame_machines
+            WHERE name = $name;
+        ";
+        command.Parameters.AddWithValue("$name", name);
+
+        using SqliteDataReader reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        return new MameMachine
+        {
+            Name = reader.GetString(0),
+            SourceFile = reader.IsDBNull(1) ? null : reader.GetString(1),
+            Description = reader.GetString(2),
+            Year = reader.IsDBNull(3) ? null : reader.GetString(3),
+            Manufacturer = reader.IsDBNull(4) ? null : reader.GetString(4),
+            CloneOf = reader.IsDBNull(5) ? null : reader.GetString(5),
+            RomOf = reader.IsDBNull(6) ? null : reader.GetString(6),
+            SampleOf = reader.IsDBNull(7) ? null : reader.GetString(7),
+            IsBios = reader.GetBoolean(8),
+            IsDevice = reader.GetBoolean(9),
+            IsMechanical = reader.GetBoolean(10),
+            Runnable = reader.GetBoolean(11),
+            DriverStatus = reader.IsDBNull(12) ? null : reader.GetString(12),
+            DriverEmulation = reader.IsDBNull(13) ? null : reader.GetString(13),
+            DriverSavestate = reader.IsDBNull(14) ? null : reader.GetString(14),
+            Players = reader.IsDBNull(15) ? null : reader.GetInt32(15),
+            Coins = reader.IsDBNull(16) ? null : reader.GetInt32(16),
+            DisplayType = reader.IsDBNull(17) ? null : reader.GetString(17),
+            DisplayRotate = reader.IsDBNull(18) ? null : reader.GetInt32(18),
+            DisplayWidth = reader.IsDBNull(19) ? null : reader.GetInt32(19),
+            DisplayHeight = reader.IsDBNull(20) ? null : reader.GetInt32(20),
+            DisplayRefresh = reader.IsDBNull(21) ? null : reader.GetDouble(21),
+            SoundChannels = reader.IsDBNull(22) ? null : reader.GetInt32(22),
+            RequiresChd = reader.GetBoolean(23)
+        };
+    }
+
+    private void ReadMachineRoms(MameMachine machine)
+    {
+        using var command = CreateCommand();
+        command.CommandText = @"
+            SELECT name, size_bytes, crc, sha1, merge_name, region, status, is_optional
+            FROM mame_machine_roms
+            WHERE machine_name = $machineName
+            ORDER BY id;
+        ";
+        command.Parameters.AddWithValue("$machineName", machine.Name);
+
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            machine.Roms.Add(new MameRomDump(
+                reader.GetString(0),
+                reader.GetInt64(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3),
+                reader.IsDBNull(4) ? null : reader.GetString(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5),
+                reader.GetString(6),
+                reader.GetBoolean(7)));
+        }
+    }
+
+    private void ReadMachineControls(MameMachine machine)
+    {
+        using var command = CreateCommand();
+        command.CommandText = @"
+            SELECT type, player, buttons, ways
+            FROM mame_machine_controls
+            WHERE machine_name = $machineName
+            ORDER BY id;
+        ";
+        command.Parameters.AddWithValue("$machineName", machine.Name);
+
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            machine.Controls.Add(new MameControl(
+                reader.GetString(0),
+                reader.IsDBNull(1) ? null : reader.GetInt32(1),
+                reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3)));
+        }
     }
 
     private SqliteCommand GetInsertMachineCommand()
