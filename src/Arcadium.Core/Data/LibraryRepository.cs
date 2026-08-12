@@ -45,7 +45,7 @@ public sealed class LibraryRepository
         };
     }
 
-    public LibraryRom? GetLibraryRom(int romId)
+    public LibraryRom? GetLibraryRom(long romId)
     {
         if (romId <= 0)
         {
@@ -68,7 +68,23 @@ public sealed class LibraryRepository
         };
     }
 
-    private RomRecord? ReadRom(int romId)
+    /// <summary>True if an active rom with this id exists. Cheaper than <see cref="GetLibraryRom(long)"/>
+    /// for callers that only need to validate a rom id, since it skips the MAME join.</summary>
+    public bool RomExists(long romId)
+    {
+        if (romId <= 0)
+        {
+            throw new ArgumentException($"Invalid rom id {romId}.");
+        }
+
+        using SqliteCommand command = _connection.CreateCommand();
+        command.CommandText = "SELECT EXISTS(SELECT 1 FROM roms WHERE id = $romId AND scan_state = 'active');";
+        command.Parameters.AddWithValue("$romId", romId);
+
+        return (long)command.ExecuteScalar()! == 1;
+    }
+
+    private RomRecord? ReadRom(long romId)
     {
         using SqliteCommand command = _connection.CreateCommand();
         command.CommandText = @"
