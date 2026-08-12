@@ -24,15 +24,44 @@ public class MigrationRunner
 
         long currentVersion = GetCurrentVersion();
 
-        foreach ((int version, string resourceName) in GetMigrationScripts())
-        {
-            if (version <= currentVersion)
-            {
-                continue;
-            }
+        (int Version, string ResourceName)[] pendingMigrations = GetMigrationScripts()
+            .Where(script => script.Version > currentVersion)
+            .ToArray();
 
+        if (pendingMigrations.Length == 0)
+        {
+            return;
+        }
+
+        if (currentVersion > 0)
+        {
+            BackupBeforeMigrating(currentVersion);
+        }
+
+        foreach ((int version, string resourceName) in pendingMigrations)
+        {
             ApplyMigration(version, resourceName);
         }
+    }
+
+    private void BackupBeforeMigrating(long currentVersion)
+    {
+        string sourcePath = _connection.DataSource;
+        if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+        {
+            return;
+        }
+
+        string timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
+        string backupPath = $"{sourcePath}.v{currentVersion}.{timestamp}.bak";
+
+        Logger.LogInformation($"Backing up database to '{backupPath}' before applying migrations.");
+
+        using SqliteConnection backupConnection = new SqliteConnection(
+            new SqliteConnectionStringBuilder { DataSource = backupPath, Mode = SqliteOpenMode.ReadWriteCreate }.ToString());
+        backupConnection.Open();
+
+        _connection.BackupDatabase(backupConnection);
     }
 
     private void EnsureSchemaVersionTable()
