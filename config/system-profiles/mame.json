@@ -1,0 +1,17 @@
+{
+  "id": "mame",
+  "name": "MAME",
+  "romPath": [
+    "/home/sandor/Documents/arcadium/roms/mame/"
+  ],
+  "mediaPath": "/home/sandor/Documents/arcadium/ui/mame/",
+  "extensions": [
+    ".zip",
+    ".7z",
+    ".chd"
+  ],
+  "emulatorProfile": "mame",
+  "enabled": true,
+  "sortOrder": 1
+}
+
