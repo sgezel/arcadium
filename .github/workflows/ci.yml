@@ -29,7 +29,7 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build src/Arcadium.Scanner/Arcadium.Scanner.csproj --configuration Release --no-restore
+        run: dotnet build Arcadium.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test src/Arcadium.Scanner/Arcadium.Scanner.csproj --configuration Release --no-build --no-restore
+        run: dotnet test tests/Arcadium.Core.Tests/Arcadium.Core.Tests.csproj --configuration Release --no-build --no-restore --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
