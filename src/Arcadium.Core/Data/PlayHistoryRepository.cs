@@ -63,7 +63,12 @@ public sealed class PlayHistoryRepository
         command.CommandText = @"
             UPDATE game_play_history
             SET exited_at = $finishedAt
-            WHERE rom_id = $romId AND exited_at IS NULL";
+            WHERE id = (
+                SELECT id FROM game_play_history
+                WHERE rom_id = $romId AND exited_at IS NULL
+                ORDER BY launched_at DESC, id DESC
+                LIMIT 1
+            )";
         command.Parameters.AddWithValue("$romId", romId);
         command.Parameters.AddWithValue("$finishedAt", DateTime.UtcNow);
 
@@ -83,7 +88,7 @@ public sealed class PlayHistoryRepository
             SELECT id, rom_id, launched_at, exited_at, exit_code
             FROM game_play_history
             WHERE rom_id = $romId
-            ORDER BY launched_at DESC";
+            ORDER BY launched_at DESC, id DESC";
         command.Parameters.AddWithValue("$romId", romId);
 
         List<PlayHistoryEntry> entries = new List<PlayHistoryEntry>();

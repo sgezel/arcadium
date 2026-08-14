@@ -1,6 +1,8 @@
 using Arcadium.Core.Data;
+using Arcadium.Core.Models;
 using Arcadium.Core.Tests.Support;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
 namespace Arcadium.Core.Tests.Data;
 
@@ -11,6 +13,83 @@ public sealed class MigrationRunnerTests : IDisposable
     public MigrationRunnerTests()
     {
         _connection = TestDatabase.CreateMigrated();
+    }
+
+    [Fact]
+    public void RunMigrations_WithPendingMigrationsOnANonEmptyDatabase_BacksUpThePreMigrationState()
+    {
+        using TempDirectory tempDirectory = new TempDirectory();
+        string databasePath = Path.Combine(tempDirectory.Path, "arcadium.db");
+        SqliteDatabase database = new SqliteDatabase(databasePath);
+        DateTime timestamp = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        using (SqliteConnection setupConnection = database.OpenReadWrite())
+        {
+            new MigrationRunner(setupConnection).RunMigrations();
+
+            ScanRepository scanRepository = new ScanRepository(setupConnection);
+            scanRepository.BeginTransaction();
+            scanRepository.UpsertRom(new RomRecord
+            {
+                SystemId = "arcade",
+                Filename = "pacman.zip",
+                Basename = "pacman",
+                Path = "/roms/arcade/pacman.zip",
+                SizeBytes = 4096,
+                ModifiedTimeUtc = timestamp,
+                ScanState = "active",
+                FirstSeenAt = timestamp,
+                LastSeenAt = timestamp,
+                CreatedAt = timestamp,
+                UpdatedAt = timestamp
+            });
+            scanRepository.Commit();
+
+            // Roll the recorded version back to 1 so the next run sees every migration above it as
+            // pending, without touching the tables those migrations already created (their scripts
+            // are idempotent) or the rom row seeded above.
+            using SqliteCommand rollback = setupConnection.CreateCommand();
+            rollback.CommandText = "DELETE FROM schema_version WHERE version > 1;";
+            rollback.ExecuteNonQuery();
+        }
+
+        using (SqliteConnection secondRunConnection = database.OpenReadWrite())
+        {
+            new MigrationRunner(secondRunConnection).RunMigrations();
+        }
+
+        string[] backupFiles = Directory.GetFiles(tempDirectory.Path, "arcadium.db.v*.bak");
+        string backupPath = Assert.Single(backupFiles);
+        Assert.Contains(".v1.", Path.GetFileName(backupPath));
+
+        using SqliteConnection backupConnection = new SqliteConnection(
+            new SqliteConnectionStringBuilder { DataSource = backupPath, Mode = SqliteOpenMode.ReadOnly }.ToString());
+        backupConnection.Open();
+
+        using SqliteCommand versionCommand = backupConnection.CreateCommand();
+        versionCommand.CommandText = "SELECT MAX(version) FROM schema_version;";
+        long backedUpVersion = (long)versionCommand.ExecuteScalar()!;
+        Assert.Equal(1, backedUpVersion);
+
+        using SqliteCommand romCommand = backupConnection.CreateCommand();
+        romCommand.CommandText = "SELECT basename FROM roms WHERE path = $path;";
+        romCommand.Parameters.AddWithValue("$path", "/roms/arcade/pacman.zip");
+        Assert.Equal("pacman", (string)romCommand.ExecuteScalar()!);
+    }
+
+    [Fact]
+    public void RunMigrations_OnFreshFileDatabase_CreatesNoBackup()
+    {
+        using TempDirectory tempDirectory = new TempDirectory();
+        string databasePath = Path.Combine(tempDirectory.Path, "arcadium.db");
+        SqliteDatabase database = new SqliteDatabase(databasePath);
+
+        using (SqliteConnection connection = database.OpenReadWrite())
+        {
+            new MigrationRunner(connection).RunMigrations();
+        }
+
+        Assert.Empty(Directory.GetFiles(tempDirectory.Path, "*.bak"));
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using Arcadium.Core.Models;
 using Arcadium.Core.Scanning;
 using Arcadium.Core.Tests.Support;
 using Microsoft.Data.Sqlite;
+using Xunit;
 
 namespace Arcadium.Core.Tests.Data;
 
@@ -34,6 +35,45 @@ public sealed class ScanRepositoryTests : IDisposable
         Assert.Equal(rom.SizeBytes, stored.SizeBytes);
         Assert.Equal(rom.ModifiedTimeUtc, stored.ModifiedTimeUtc);
         Assert.Equal("active", stored.ScanState);
+    }
+
+    [Fact]
+    public void UpsertRom_CalledTwiceForSamePath_UpdatesInPlaceInsteadOfInserting()
+    {
+        DateTime firstSeen = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        DateTime lastSeen = firstSeen.AddDays(1);
+        RomRecord original = NewRom("arcade", "/roms/arcade/pacman.zip", "pacman.zip", "pacman", 4096, firstSeen);
+        RomRecord resized = NewRom("arcade", "/roms/arcade/pacman.zip", "pacman.zip", "pacman", 8192, lastSeen);
+
+        _repository.BeginTransaction();
+        _repository.UpsertRom(original);
+        _repository.Commit();
+        long originalId = _repository.GetRomsBySystem("arcade")[original.Path].Id;
+
+        _repository.BeginTransaction();
+        _repository.UpsertRom(resized);
+        _repository.Commit();
+
+        Dictionary<string, RomRecord> roms = _repository.GetRomsBySystem("arcade");
+        RomRecord stored = Assert.Single(roms.Values);
+        Assert.Equal(originalId, stored.Id);
+        Assert.Equal(8192, stored.SizeBytes);
+    }
+
+    [Fact]
+    public void UpsertRom_WithSamePathOnDifferentSystems_KeepsBothRoms()
+    {
+        DateTime timestamp = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        RomRecord arcadeRom = NewRom("arcade", "/roms/shared/game.zip", "game.zip", "game", 4096, timestamp);
+        RomRecord consoleRom = NewRom("console", "/roms/shared/game.zip", "game.zip", "game", 4096, timestamp);
+
+        _repository.BeginTransaction();
+        _repository.UpsertRom(arcadeRom);
+        _repository.UpsertRom(consoleRom);
+        _repository.Commit();
+
+        Assert.Single(_repository.GetRomsBySystem("arcade"));
+        Assert.Single(_repository.GetRomsBySystem("console"));
     }
 
     [Fact]

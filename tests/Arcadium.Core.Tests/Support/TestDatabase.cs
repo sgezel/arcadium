@@ -8,6 +8,16 @@ internal static class TestDatabase
 {
     internal static SqliteConnection CreateMigrated()
     {
+        SqliteConnection connection = CreateEmpty();
+
+        new MigrationRunner(connection).RunMigrations();
+
+        return connection;
+    }
+
+    /// <summary>Opens an in-memory SQLite connection with no migrations applied (no tables at all).</summary>
+    internal static SqliteConnection CreateEmpty()
+    {
         SqliteConnection connection = new SqliteConnection("Data Source=:memory:");
         connection.Open();
 
@@ -16,8 +26,6 @@ internal static class TestDatabase
             pragma.CommandText = "PRAGMA foreign_keys = ON;";
             pragma.ExecuteNonQuery();
         }
-
-        new MigrationRunner(connection).RunMigrations();
 
         return connection;
     }
